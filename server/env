@@ -1,7 +1,0 @@
-# Neon: neon-chestnut-globe (morning-breeze-30673169)
-# จาก Vercel / Neon integration
-
-DATABASE_URL=postgresql://neondb_owner:npg_LVAQD120Mimu@ep-cold-brook-bbj7dv6s-pooler.c-15.us-east-1.aws.neon.tech/neondb?sslmode=require
-
-PORT=3001
-CORS_ORIGIN=*
