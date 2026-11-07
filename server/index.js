@@ -1,24 +1,15 @@
 /**
- * Dozo Genshin API · รองรับ Neon PostgreSQL
- *
- * 1) สร้างโปรเจกต์ที่ console.neon.tech
- * 2) คัดลอก Connection string → ใส่ใน .env เป็น DATABASE_URL
- * 3) รัน schema: เปิด Neon SQL Editor แล้ววางไฟล์ ../db/schema.sql
- * 4) npm install && npm run dev
+ * Dozo Genshin API · Neon PostgreSQL
+ * ใช้ได้ทั้ง local (npm run dev) และ Vercel Serverless
  */
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { neon } from "@neondatabase/serverless";
 
-const PORT = process.env.PORT || 3001;
-const DATABASE_URL = process.env.DATABASE_URL;
-
-if (!DATABASE_URL) {
-  console.warn("⚠️  ยังไม่มี DATABASE_URL — API จะสตาร์ทแต่ query จะพังจนกว่าจะใส่ connection string");
-}
-
+const DATABASE_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL || "";
 const sql = DATABASE_URL ? neon(DATABASE_URL) : null;
+
 const app = express();
 
 app.use(cors({
@@ -27,14 +18,33 @@ app.use(cors({
 }));
 app.use(express.json({ limit: "2mb" }));
 
-function requireDb(req, res, next) {
+function requireDb(_req, res, next) {
   if (!sql) {
-    return res.status(503).json({ error: "Database not configured (DATABASE_URL)" });
+    return res.status(503).json({
+      error: "Database not configured",
+      hint: "Set DATABASE_URL in Vercel Environment Variables"
+    });
   }
   next();
 }
 
-app.get("/api/health", (req, res) => {
+app.get("/", (_req, res) => {
+  res.json({
+    name: "Dozo Genshin API",
+    ok: true,
+    db: Boolean(sql),
+    endpoints: [
+      "GET /api/health",
+      "GET /api/orders",
+      "POST /api/orders",
+      "PATCH /api/orders/:id/status",
+      "GET /api/team",
+      "POST /api/users/ensure"
+    ]
+  });
+});
+
+app.get("/api/health", (_req, res) => {
   res.json({
     ok: true,
     db: Boolean(sql),
@@ -43,7 +53,7 @@ app.get("/api/health", (req, res) => {
 });
 
 // ---------- Orders ----------
-app.get("/api/orders", requireDb, async (req, res) => {
+app.get("/api/orders", requireDb, async (_req, res) => {
   try {
     const rows = await sql`
       SELECT id, order_code, service, status, summary, detail,
@@ -100,7 +110,7 @@ app.patch("/api/orders/:id/status", requireDb, async (req, res) => {
     }
     const rows = await sql`
       UPDATE orders SET status = ${status}
-      WHERE id = ${req.params.id} OR order_code = ${req.params.id}
+      WHERE id::text = ${req.params.id} OR order_code = ${req.params.id}
       RETURNING *
     `;
     if (!rows.length) return res.status(404).json({ error: "order not found" });
@@ -112,7 +122,7 @@ app.patch("/api/orders/:id/status", requireDb, async (req, res) => {
 });
 
 // ---------- Team ----------
-app.get("/api/team", requireDb, async (req, res) => {
+app.get("/api/team", requireDb, async (_req, res) => {
   try {
     const rows = await sql`
       SELECT id, name, role, meta, active, sort_order
@@ -127,7 +137,7 @@ app.get("/api/team", requireDb, async (req, res) => {
   }
 });
 
-// ---------- Users (เตรียม auth ภายหลัง) ----------
+// ---------- Users ----------
 app.get("/api/users/by-email/:email", requireDb, async (req, res) => {
   try {
     const rows = await sql`
@@ -165,7 +175,14 @@ app.post("/api/users/ensure", requireDb, async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Dozo API running on http://localhost:${PORT}`);
-  console.log(`DB: ${sql ? "configured" : "NOT configured"}`);
-});
+// local only — บน Vercel ใช้ serverless entry
+const isVercel = Boolean(process.env.VERCEL);
+if (!isVercel) {
+  const PORT = process.env.PORT || 3001;
+  app.listen(PORT, () => {
+    console.log(`Dozo API http://localhost:${PORT}`);
+    console.log(`DB: ${sql ? "configured" : "NOT configured"}`);
+  });
+}
+
+export default app;
