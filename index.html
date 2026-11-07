@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dozo Genshin | รับงานฟาร์ม & วัสดุ</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+</head>
+<body>
+  <!-- ========== LOADING / INTRO SCREEN ========== -->
+  <div id="loading-screen" class="screen active">
+    <div class="particles" id="particles"></div>
+    <div class="intro-content">
+      <div class="intro-avatar-wrap">
+        <div class="intro-avatar">
+          <span class="avatar-text">DG</span>
+        </div>
+        <span class="intro-ring"></span>
+        <span class="intro-ring ring-2"></span>
+      </div>
+      <h1 class="intro-title">Dozo <span>Genshin</span></h1>
+      <p class="intro-sub">บริการรับงานฟาร์ม &amp; วัสดุเก็นชิน</p>
+      <div class="progress-wrapper">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <p class="loading-text" id="loading-text">กำลังเตรียมระบบ...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== LOGIN SCREEN ========== -->
+  <div id="login-screen" class="screen">
+    <div class="login-card glass">
+      <div class="login-header">
+        <h2>เข้าสู่ระบบ</h2>
+        <p>ยินดีต้อนรับสู่ Dozo Genshin</p>
+      </div>
+      <form id="login-form">
+        <div class="form-group">
+          <label for="email">อีเมล</label>
+          <input type="email" id="email" placeholder="your@email.com" required autocomplete="email" />
+        </div>
+        <div class="form-group">
+          <label for="password">รหัสผ่าน</label>
+          <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password" />
+        </div>
+        <button type="submit" class="btn-primary" id="login-btn">
+          <span class="btn-text">เข้าสู่ระบบ</span>
+          <span class="btn-loader hidden"></span>
+        </button>
+      </form>
+      <p class="login-footer">
+        ยังไม่มีบัญชี? <a href="#" id="register-link">สมัครสมาชิก</a>
+      </p>
+      <div id="auth-error" class="error-message hidden"></div>
+    </div>
+  </div>
+
+  <!-- ========== DASHBOARD SCREEN ========== -->
+  <div id="dashboard-screen" class="screen">
+    <header class="dash-header glass">
+      <div class="header-left">
+        <h1 class="brand">Dozo <span>Genshin</span></h1>
+      </div>
+      <nav class="navbar">
+        <button class="nav-item active" data-view="home">หน้าหลัก</button>
+        <button class="nav-item" data-view="history">ประวัติออเดอร์</button>
+        <button class="nav-item" data-view="contact">ติดต่อเรา</button>
+        <button class="nav-item admin-only hidden" data-view="admin" id="nav-admin">แอดมิน</button>
+      </nav>
+      <div class="header-right">
+        <span id="user-email" class="user-email"></span>
+        <button id="logout-btn" class="btn-logout">ออกจากระบบ</button>
+      </div>
+    </header>
+
+    <main class="dash-main">
+      <!-- ===== HOME VIEW ===== -->
+      <div id="view-home" class="view active">
+        <section class="welcome-section">
+          <h2>สวัสดี, <span id="display-name">นักเดินทาง</span></h2>
+          <p>เลือกบริการที่ต้องการด้านล่างได้เลย</p>
+        </section>
+
+        <section class="services-grid">
+          <div class="service-card glass" data-service="farm-gem">
+            <div class="card-icon">💎</div>
+            <h3>ฟาร์มเจม</h3>
+            <p>รับฟาร์ม Primogem, Mora และทรัพยากรหลัก</p>
+            <button class="btn-service">เลือกบริการ</button>
+          </div>
+          <div class="service-card glass" data-service="material">
+            <div class="card-icon">🌿</div>
+            <h3>หาวัสดุ</h3>
+            <p>จัดหาวัสดุเลื่อนขั้นตัวละคร &amp; อาวุธ</p>
+            <button class="btn-service">เลือกบริการ</button>
+          </div>
+          <div class="service-card glass" data-service="abyss">
+            <div class="card-icon">⚔️</div>
+            <h3>เคลียร์ Abyss</h3>
+            <p>ช่วยเคลียร์ Spiral Abyss ทุกชั้น</p>
+            <button class="btn-service">เลือกบริการ</button>
+          </div>
+          <div class="service-card glass" data-service="explore">
+            <div class="card-icon">🗺️</div>
+            <h3>สำรวจแผนที่</h3>
+            <p>เปิดแผนที่ 100% + เก็บของหายาก</p>
+            <button class="btn-service">เลือกบริการ</button>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===== ORDER FARM GEM VIEW ===== -->
+      <div id="view-order-farm" class="view">
+        <div class="order-header">
+          <button class="btn-back" id="btn-back-home">← กลับหน้าหลัก</button>
+          <h2>สั่งงานฟาร์มเจม</h2>
+        </div>
+
+        <form id="farm-form" class="order-form">
+          <!-- เลือกแพ็กเกจ -->
+          <section class="form-section glass">
+            <h3 class="section-title">1. เลือกจำนวนเจม</h3>
+            <div class="package-grid" id="package-grid">
+              <!-- packages injected by JS -->
+            </div>
+            <div class="rush-option">
+              <label class="checkbox-label">
+                <input type="checkbox" id="rush-check" />
+                <span>งานเร่ง (บวก 30%)</span>
+              </label>
+              <p class="hint" id="rush-hint">ราคาจะปรับอัตโนมัติเมื่อเลือกงานเร่ง</p>
+            </div>
+            <div class="price-summary">
+              <span>ยอดที่ต้องชำระ:</span>
+              <strong id="total-price">0 ฿</strong>
+            </div>
+          </section>
+
+          <!-- ข้อมูลบัญชี -->
+          <section class="form-section glass">
+            <h3 class="section-title">2. ข้อมูลบัญชีเกม</h3>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="game-user">User (ชื่อผู้ใช้)</label>
+                <input type="text" id="game-user" placeholder="Username" required />
+              </div>
+              <div class="form-group">
+                <label for="game-id">UID / ID</label>
+                <input type="text" id="game-id" placeholder="เช่น 812345678" required />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="game-pass">Password</label>
+              <input type="password" id="game-pass" placeholder="รหัสผ่านบัญชี" required />
+            </div>
+            <p class="hint warn">* ไม่รับไอดีเมมพาส (Memory Password)</p>
+          </section>
+
+          <!-- ข้อห้าม -->
+          <section class="form-section glass">
+            <h3 class="section-title">3. ข้อห้ามที่ห้ามผู้รับงานทำ</h3>
+            <div class="form-group">
+              <label for="prohibitions">ระบุสิ่งที่ห้ามทำในงานนี้ (ถ้ามี)</label>
+              <textarea id="prohibitions" rows="3" placeholder="เช่น ห้ามใช้ตัวละครบางตัว, ห้ามเปิดหีบ, ห้ามคุยในเกม ฯลฯ"></textarea>
+            </div>
+          </section>
+
+          <!-- สตรีม -->
+          <section class="form-section glass">
+            <h3 class="section-title">4. การสตรีมจอ</h3>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" name="stream" value="yes" />
+                <span>ต้องการให้สตรีมจอ</span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="stream" value="no" checked />
+                <span>ไม่ต้องสตรีมจอ</span>
+              </label>
+            </div>
+          </section>
+
+          <!-- ชำระเงิน + สลิป -->
+          <section class="form-section glass">
+            <h3 class="section-title">5. ชำระเงิน &amp; อัปโหลดสลิป</h3>
+            <p class="hint">สแกน QR ด้านล่างเพื่อโอนเงิน (PromptPay) จากนั้นอัปโหลดสลิป</p>
+            
+            <div class="qr-box">
+              <img src="assets/qr-promptpay.jpg" alt="QR PromptPay" class="qr-img" />
+              <p class="qr-note">สแกนเพื่อจ่ายผ่านพร้อมเพย์</p>
+            </div>
+
+            <div class="form-group">
+              <label for="slip-upload">อัปโหลดสลิปโอนเงิน <span class="required">*จำเป็น</span></label>
+              <div class="upload-area" id="upload-area">
+                <input type="file" id="slip-upload" accept="image/*" />
+                <div class="upload-placeholder" id="upload-placeholder">
+                  <span>📎 คลิกหรือลากไฟล์สลิปมาวางที่นี่</span>
+                  <small>รองรับ JPG, PNG</small>
+                </div>
+                <img id="slip-preview" class="slip-preview hidden" alt="ตัวอย่างสลิป" />
+              </div>
+              <p class="hint warn" id="slip-error">ต้องอัปโหลดสลิปก่อนจึงจะกดสั่งซื้อได้</p>
+            </div>
+          </section>
+
+          <!-- หมายเหตุ -->
+          <section class="form-section note-section glass">
+            <h3 class="section-title">📌 หมายเหตุสำคัญ</h3>
+            <ul class="note-list">
+              <li>ยกเลิกงานกลางคัน <strong>ไม่มีการคืนเงิน</strong></li>
+              <li>กรณี AR สูงและพื้นที่เหลือน้อย ทางร้านจะขอเวลาปรึกษากับทีมเพื่อพิจารณางาน</li>
+              <li>หลังกดสั่งซื้อ กรุณา <strong>แคปหน้าจอรายการนี้</strong> แล้วส่งมาทาง Facebook: <strong>Do Zo Genshin</strong></li>
+            </ul>
+          </section>
+
+          <div class="form-actions">
+            <button type="submit" class="btn-primary btn-submit" id="btn-submit-order" disabled>
+              สั่งซื้อบริการ
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ===== ORDER MATERIAL VIEW ===== -->
+      <div id="view-order-material" class="view">
+        <div class="order-header">
+          <button class="btn-back" id="btn-back-home-mat" type="button">← กลับหน้าหลัก</button>
+          <h2>สั่งงานหาวัสดุ</h2>
+        </div>
+
+        <form id="material-form" class="order-form">
+          <!-- 1. เลือกตัวละคร -->
+          <section class="form-section glass">
+            <h3 class="section-title">1. เลือกตัวละคร</h3>
+            <div class="form-group">
+              <input type="text" id="char-search" placeholder="ค้นหาชื่อตัวละคร..." autocomplete="off" />
+            </div>
+            <div class="char-grid" id="char-grid"></div>
+            <p class="hint" id="char-selected-hint">ยังไม่ได้เลือกตัวละคร</p>
+          </section>
+
+          <!-- 2. ข้อมูลบัญชี -->
+          <section class="form-section glass">
+            <h3 class="section-title">2. ข้อมูลบัญชีเกม</h3>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="mat-user">User (ชื่อผู้ใช้)</label>
+                <input type="text" id="mat-user" placeholder="Username" required />
+              </div>
+              <div class="form-group">
+                <label for="mat-id">UID / ID</label>
+                <input type="text" id="mat-id" placeholder="เช่น 812345678" required />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="mat-pass">Password</label>
+              <input type="password" id="mat-pass" placeholder="รหัสผ่านบัญชี" required />
+            </div>
+            <p class="hint warn">* ไม่รับไอดีเมมพาส (Memory Password)</p>
+          </section>
+
+          <!-- 3. วัสดุที่ต้องการ -->
+          <section class="form-section glass">
+            <h3 class="section-title">3. รายการวัสดุที่ต้องการ</h3>
+            <p class="hint" style="margin-bottom:0.8rem">ลูกค้า<strong>จำเป็นต้องแคปหน้าตาวัสดุ</strong>จากในเกม แล้วอัปโหลดมาด้านล่าง</p>
+            <div class="form-group">
+              <label for="mat-note">รายละเอียดเพิ่มเติม (ถ้ามี)</label>
+              <textarea id="mat-note" rows="2" placeholder="เช่น ต้องการเลื่อนขั้น Ascension 6, ต้องการ talent 9/9/9 ฯลฯ"></textarea>
+            </div>
+            <div class="form-group">
+              <label>แคปหน้าตาวัสดุ <span class="required">*จำเป็น</span></label>
+              <div class="upload-area" id="mat-shot-area">
+                <input type="file" id="mat-shot-upload" accept="image/*" />
+                <div class="upload-placeholder" id="mat-shot-placeholder">
+                  <span>📸 คลิกหรือลากแคปหน้าตาวัสดุมาวาง</span>
+                  <small>รองรับ JPG, PNG</small>
+                </div>
+                <img id="mat-shot-preview" class="slip-preview hidden" alt="ตัวอย่างแคปวัสดุ" />
+              </div>
+              <p class="hint warn" id="mat-shot-error">ต้องอัปโหลดแคปหน้าตาวัสดุก่อน</p>
+            </div>
+          </section>
+
+          <!-- 4. ข้อห้าม + สตรีม -->
+          <section class="form-section glass">
+            <h3 class="section-title">4. ข้อห้าม &amp; การสตรีมจอ</h3>
+            <div class="form-group">
+              <label for="mat-prohibitions">ระบุสิ่งที่ห้ามทำในงานนี้ (ถ้ามี)</label>
+              <textarea id="mat-prohibitions" rows="2" placeholder="เช่น ห้ามใช้ตัวละครบางตัว, ห้ามเปิดหีบ ฯลฯ"></textarea>
+            </div>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" name="mat-stream" value="yes" />
+                <span>ต้องการให้สตรีมจอ</span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="mat-stream" value="no" checked />
+                <span>ไม่ต้องสตรีมจอ</span>
+              </label>
+            </div>
+          </section>
+
+          <!-- 5. ชำระเงิน -->
+          <section class="form-section glass">
+            <h3 class="section-title">5. ชำระเงิน &amp; อัปโหลดสลิป</h3>
+            <p class="hint">ราคาจะตกลงหลังทางร้านดูแคปวัสดุแล้ว — โอนตามที่ตกลง แล้วอัปโหลดสลิป</p>
+            <div class="qr-box">
+              <img src="assets/qr-promptpay.jpg" alt="QR PromptPay" class="qr-img" />
+              <p class="qr-note">สแกนเพื่อจ่ายผ่านพร้อมเพย์</p>
+            </div>
+            <div class="form-group">
+              <label for="mat-slip-upload">อัปโหลดสลิปโอนเงิน <span class="required">*จำเป็น</span></label>
+              <div class="upload-area" id="mat-slip-area">
+                <input type="file" id="mat-slip-upload" accept="image/*" />
+                <div class="upload-placeholder" id="mat-slip-placeholder">
+                  <span>📎 คลิกหรือลากไฟล์สลิปมาวางที่นี่</span>
+                  <small>รองรับ JPG, PNG</small>
+                </div>
+                <img id="mat-slip-preview" class="slip-preview hidden" alt="ตัวอย่างสลิป" />
+              </div>
+              <p class="hint warn" id="mat-slip-error">ต้องอัปโหลดสลิปก่อนจึงจะกดสั่งซื้อได้</p>
+            </div>
+          </section>
+
+          <section class="form-section note-section glass">
+            <h3 class="section-title">📌 หมายเหตุสำคัญ</h3>
+            <ul class="note-list">
+              <li>ต้องแคปหน้าตาวัสดุจากในเกมส่งมาด้วยทุกครั้ง</li>
+              <li>ยกเลิกงานกลางคัน <strong>ไม่มีการคืนเงิน</strong></li>
+              <li>หลังกดสั่งซื้อ กรุณา <strong>แคปหน้าจอรายการนี้</strong> แล้วส่งมาทาง Facebook: <strong>Do Zo Genshin</strong></li>
+            </ul>
+          </section>
+
+          <div class="form-actions">
+            <button type="submit" class="btn-primary btn-submit" id="btn-submit-material" disabled>
+              สั่งซื้อบริการ
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ===== ORDER ABYSS VIEW ===== -->
+      <div id="view-order-abyss" class="view">
+        <div class="order-header">
+          <button class="btn-back" id="btn-back-home-abyss" type="button">← กลับหน้าหลัก</button>
+          <h2>สั่งงานเคลียร์ Abyss</h2>
+        </div>
+
+        <form id="abyss-form" class="order-form">
+          <section class="form-section glass">
+            <h3 class="section-title">1. เลือกชั้น / เป้าหมาย</h3>
+            <div class="package-grid" id="abyss-package-grid"></div>
+            <div class="form-group" style="margin-top:0.8rem">
+              <label for="abyss-detail">รายละเอียดเพิ่มเติม (ถ้ามี)</label>
+              <textarea id="abyss-detail" rows="2" placeholder="เช่น ต้องการ 9 ดาวชั้น 12, ใช้ทีมเฉพาะ ฯลฯ"></textarea>
+            </div>
+          </section>
+
+          <section class="form-section glass">
+            <h3 class="section-title">2. ข้อมูลบัญชีเกม</h3>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="abyss-user">User (ชื่อผู้ใช้)</label>
+                <input type="text" id="abyss-user" placeholder="Username" required />
+              </div>
+              <div class="form-group">
+                <label for="abyss-id">UID / ID</label>
+                <input type="text" id="abyss-id" placeholder="เช่น 812345678" required />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="abyss-pass">Password</label>
+              <input type="password" id="abyss-pass" placeholder="รหัสผ่านบัญชี" required />
+            </div>
+            <p class="hint warn">* ไม่รับไอดีเมมพาส (Memory Password)</p>
+          </section>
+
+          <section class="form-section glass">
+            <h3 class="section-title">3. ข้อห้าม &amp; การสตรีมจอ</h3>
+            <div class="form-group">
+              <label for="abyss-prohibitions">ระบุสิ่งที่ห้ามทำในงานนี้ (ถ้ามี)</label>
+              <textarea id="abyss-prohibitions" rows="2" placeholder="เช่น ห้ามใช้ตัวละครบางตัว ฯลฯ"></textarea>
+            </div>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" name="abyss-stream" value="yes" />
+                <span>ต้องการให้สตรีมจอ</span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="abyss-stream" value="no" checked />
+                <span>ไม่ต้องสตรีมจอ</span>
+              </label>
+            </div>
+          </section>
+
+          <section class="form-section glass">
+            <h3 class="section-title">4. ชำระเงิน &amp; อัปโหลดสลิป</h3>
+            <p class="hint">ราคาขึ้นกับชั้น/ดาวที่เลือก — โอนตามที่ตกลง แล้วอัปโหลดสลิป</p>
+            <div class="qr-box">
+              <img src="assets/qr-promptpay.jpg" alt="QR PromptPay" class="qr-img" />
+              <p class="qr-note">สแกนเพื่อจ่ายผ่านพร้อมเพย์</p>
+            </div>
+            <div class="form-group">
+              <label>อัปโหลดสลิปโอนเงิน <span class="required">*จำเป็น</span></label>
+              <div class="upload-area" id="abyss-slip-area">
+                <input type="file" id="abyss-slip-upload" accept="image/*" />
+                <div class="upload-placeholder" id="abyss-slip-placeholder">
+                  <span>📎 คลิกหรือลากไฟล์สลิปมาวางที่นี่</span>
+                  <small>รองรับ JPG, PNG</small>
+                </div>
+                <img id="abyss-slip-preview" class="slip-preview hidden" alt="ตัวอย่างสลิป" />
+              </div>
+              <p class="hint warn" id="abyss-slip-error">ต้องอัปโหลดสลิปก่อนจึงจะกดสั่งซื้อได้</p>
+            </div>
+          </section>
+
+          <section class="form-section note-section glass">
+            <h3 class="section-title">📌 หมายเหตุสำคัญ</h3>
+            <ul class="note-list">
+              <li>ยกเลิกงานกลางคัน <strong>ไม่มีการคืนเงิน</strong></li>
+              <li>หลังกดสั่งซื้อ กรุณา <strong>แคปหน้าจอรายการนี้</strong> แล้วส่งมาทาง Facebook: <strong>Do Zo Genshin</strong></li>
+            </ul>
+          </section>
+
+          <div class="form-actions">
+            <button type="submit" class="btn-primary btn-submit" id="btn-submit-abyss" disabled>
+              สั่งซื้อบริการ
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ===== ORDER EXPLORE VIEW ===== -->
+      <div id="view-order-explore" class="view">
+        <div class="order-header">
+          <button class="btn-back" id="btn-back-home-explore" type="button">← กลับหน้าหลัก</button>
+          <h2>สั่งงานสำรวจแผนที่</h2>
+        </div>
+
+        <form id="explore-form" class="order-form">
+          <section class="form-section glass">
+            <h3 class="section-title">1. เลือกพื้นที่ / เป้าหมาย</h3>
+            <div class="package-grid" id="explore-package-grid"></div>
+            <div class="form-group" style="margin-top:0.8rem">
+              <label for="explore-detail">รายละเอียดเพิ่มเติม (ถ้ามี)</label>
+              <textarea id="explore-detail" rows="2" placeholder="เช่น เน้นเก็บหีบ, เปิดจุดวาร์ป, เก็บ Oculus ฯลฯ"></textarea>
+            </div>
+          </section>
+
+          <section class="form-section glass">
+            <h3 class="section-title">2. ข้อมูลบัญชีเกม</h3>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="explore-user">User (ชื่อผู้ใช้)</label>
+                <input type="text" id="explore-user" placeholder="Username" required />
+              </div>
+              <div class="form-group">
+                <label for="explore-id">UID / ID</label>
+                <input type="text" id="explore-id" placeholder="เช่น 812345678" required />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="explore-pass">Password</label>
+              <input type="password" id="explore-pass" placeholder="รหัสผ่านบัญชี" required />
+            </div>
+            <p class="hint warn">* ไม่รับไอดีเมมพาส (Memory Password)</p>
+          </section>
+
+          <section class="form-section glass">
+            <h3 class="section-title">3. ข้อห้าม &amp; การสตรีมจอ</h3>
+            <div class="form-group">
+              <label for="explore-prohibitions">ระบุสิ่งที่ห้ามทำในงานนี้ (ถ้ามี)</label>
+              <textarea id="explore-prohibitions" rows="2" placeholder="เช่น ห้ามเปิดหีบบางจุด ฯลฯ"></textarea>
+            </div>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" name="explore-stream" value="yes" />
+                <span>ต้องการให้สตรีมจอ</span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="explore-stream" value="no" checked />
+                <span>ไม่ต้องสตรีมจอ</span>
+              </label>
+            </div>
+          </section>
+
+          <section class="form-section glass">
+            <h3 class="section-title">4. ชำระเงิน &amp; อัปโหลดสลิป</h3>
+            <p class="hint">ราคาขึ้นกับพื้นที่ที่เลือก — โอนตามที่ตกลง แล้วอัปโหลดสลิป</p>
+            <div class="qr-box">
+              <img src="assets/qr-promptpay.jpg" alt="QR PromptPay" class="qr-img" />
+              <p class="qr-note">สแกนเพื่อจ่ายผ่านพร้อมเพย์</p>
+            </div>
+            <div class="form-group">
+              <label>อัปโหลดสลิปโอนเงิน <span class="required">*จำเป็น</span></label>
+              <div class="upload-area" id="explore-slip-area">
+                <input type="file" id="explore-slip-upload" accept="image/*" />
+                <div class="upload-placeholder" id="explore-slip-placeholder">
+                  <span>📎 คลิกหรือลากไฟล์สลิปมาวางที่นี่</span>
+                  <small>รองรับ JPG, PNG</small>
+                </div>
+                <img id="explore-slip-preview" class="slip-preview hidden" alt="ตัวอย่างสลิป" />
+              </div>
+              <p class="hint warn" id="explore-slip-error">ต้องอัปโหลดสลิปก่อนจึงจะกดสั่งซื้อได้</p>
+            </div>
+          </section>
+
+          <section class="form-section note-section glass">
+            <h3 class="section-title">📌 หมายเหตุสำคัญ</h3>
+            <ul class="note-list">
+              <li>ยกเลิกงานกลางคัน <strong>ไม่มีการคืนเงิน</strong></li>
+              <li>หลังกดสั่งซื้อ กรุณา <strong>แคปหน้าจอรายการนี้</strong> แล้วส่งมาทาง Facebook: <strong>Do Zo Genshin</strong></li>
+            </ul>
+          </section>
+
+          <div class="form-actions">
+            <button type="submit" class="btn-primary btn-submit" id="btn-submit-explore" disabled>
+              สั่งซื้อบริการ
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ===== HISTORY VIEW ===== -->
+      <div id="view-history" class="view">
+        <section class="welcome-section">
+          <h2>ประวัติออเดอร์</h2>
+          <p>รายการที่คุณเคยสั่งไว้</p>
+        </section>
+        <div class="empty-state glass">
+          <p>ยังไม่มีประวัติการสั่งซื้อ</p>
+          <button class="btn-service" data-goto="home">ไปเลือกบริการ</button>
+        </div>
+      </div>
+
+      <!-- ===== CONTACT VIEW ===== -->
+      <div id="view-contact" class="view">
+        <section class="welcome-section">
+          <h2>ติดต่อเรา</h2>
+          <p>ช่องทางติดต่อและสอบถามงาน</p>
+        </section>
+        <div class="contact-card glass">
+          <p><strong>Facebook:</strong> Do Zo Genshin</p>
+          <p><strong>หมายเหตุ:</strong> หลังสั่งซื้อแล้ว กรุณาส่งแคปหน้าจอออเดอร์มาทางเพจเพื่อเริ่มงาน</p>
+        </div>
+      </div>
+
+      <!-- ===== ADMIN VIEW ===== -->
+      <div id="view-admin" class="view">
+        <section class="welcome-section">
+          <h2>แผงแอดมินร้าน</h2>
+          <p>ดูออเดอร์ ลูกค้า และลูกทีมทั้งหมด</p>
+        </section>
+
+        <div class="admin-tabs">
+          <button type="button" class="admin-tab active" data-admin-tab="orders">คำสั่งซื้อ</button>
+          <button type="button" class="admin-tab" data-admin-tab="customers">ลูกค้า</button>
+          <button type="button" class="admin-tab" data-admin-tab="team">ลูกทีม</button>
+        </div>
+
+        <!-- Orders -->
+        <div class="admin-panel active" id="admin-panel-orders">
+          <div class="admin-toolbar">
+            <span id="order-count">0 รายการ</span>
+            <button type="button" class="btn-sm" id="btn-refresh-orders">รีเฟรช</button>
+          </div>
+          <div class="admin-table-wrap glass">
+            <table class="admin-table" id="orders-table">
+              <thead>
+                <tr>
+                  <th>เวลา</th>
+                  <th>บริการ</th>
+                  <th>รายละเอียด</th>
+                  <th>ลูกค้า</th>
+                  <th>UID</th>
+                  <th>สถานะ</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="orders-tbody">
+                <tr><td colspan="7" class="empty-cell">ยังไม่มีออเดอร์</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Customers -->
+        <div class="admin-panel" id="admin-panel-customers">
+          <div class="admin-toolbar">
+            <span id="customer-count">0 คน</span>
+          </div>
+          <div class="admin-table-wrap glass">
+            <table class="admin-table" id="customers-table">
+              <thead>
+                <tr>
+                  <th>อีเมล / ชื่อ</th>
+                  <th>จำนวนออเดอร์</th>
+                  <th>ออเดอร์ล่าสุด</th>
+                </tr>
+              </thead>
+              <tbody id="customers-tbody">
+                <tr><td colspan="3" class="empty-cell">ยังไม่มีข้อมูลลูกค้า</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Team -->
+        <div class="admin-panel" id="admin-panel-team">
+          <div class="admin-toolbar">
+            <span id="team-count">0 คน</span>
+          </div>
+          <div class="team-grid" id="team-grid"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ว่าง = localStorage | ใส่ URL เช่น http://localhost:3001 = ใช้ Neon API -->
+  <script>
+    window.DOZO_API_BASE = window.DOZO_API_BASE || "";
+  </script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
